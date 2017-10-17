@@ -1,4 +1,4 @@
-FROM fluent/fluentd:v0.14.17-debian
+FROM fluent/fluentd:v0.14.19-debian
 WORKDIR /home/fluent
 ENV PATH /home/fluent/.gem/ruby/2.3.0/bin:$PATH
 

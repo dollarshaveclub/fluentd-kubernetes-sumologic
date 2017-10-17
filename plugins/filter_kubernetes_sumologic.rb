@@ -12,23 +12,22 @@ module Fluent
     config_param :source_name, :string, :default => '%{namespace}.%{pod}.%{container}'
     config_param :log_format, :string, :default => 'json'
     config_param :source_host, :string, :default => ''
-    config_param :exclude_namespace_regex, :string, :default => nil
-    config_param :exclude_pod_regex, :string, :default => nil
-    config_param :exclude_container_regex, :string, :default => nil
-    config_param :exclude_host_regex, :string, :default => nil
-    config_param :exclude_config_path, :string, :default => nil
-
-    config_param :exclude_container_regex, :string, :default => ''
-    config_param :exclude_facility_regex, :string, :default => ''
-    config_param :exclude_host_regex, :string, :default => ''
     config_param :exclude_namespace_regex, :string, :default => ''
     config_param :exclude_pod_regex, :string, :default => ''
+    config_param :exclude_container_regex, :string, :default => ''
+    config_param :exclude_host_regex, :string, :default => ''
+    config_param :exclude_config_path, :string, :default => nil
+    config_param :exclude_facility_regex, :string, :default => ''
     config_param :exclude_priority_regex, :string, :default => ''
     config_param :exclude_unit_regex, :string, :default => ''
 
     def configure(conf)
       super
-      load_exclude_config() unless @exclude_config_path.nil? || @exclude_config_path.empty?
+      load_exclude_config() if should_load_config
+    end
+
+    def should_load_config() 
+      return !@exclude_config_path.nil? && !@exclude_config_path.empty?
     end
 
     def load_exclude_config()
@@ -54,12 +53,14 @@ module Fluent
     end
 
     def start 
-      return if @exclude_config_path.nil? || @exclude_config_path.empty?
+      super
       
-      @loop = Coolio::Loop.new
-      @conf_trigger = ConfigWatcher.new(File.dirname(@exclude_config_path), log, &method(:load_exclude_config))
-      @conf_trigger.attach(@loop)
-      @thread = Thread.new(&method(:run))
+      if should_load_config
+        @loop = Coolio::Loop.new
+        @conf_trigger = ConfigWatcher.new(File.dirname(@exclude_config_path), log, &method(:load_exclude_config))
+        @conf_trigger.attach(@loop)
+        @thread = Thread.new(&method(:run))
+      end
     end
 
     def shutdown
