@@ -11,12 +11,20 @@ module Fluent
     config_param :source_category_prefix, :string, :default => 'kubernetes/'
     config_param :source_name, :string, :default => '%{namespace}.%{pod}.%{container}'
     config_param :log_format, :string, :default => 'json'
-    config_param :source_host, :string, :default => nil
+    config_param :source_host, :string, :default => ''
     config_param :exclude_namespace_regex, :string, :default => nil
     config_param :exclude_pod_regex, :string, :default => nil
     config_param :exclude_container_regex, :string, :default => nil
     config_param :exclude_host_regex, :string, :default => nil
     config_param :exclude_config_path, :string, :default => nil
+
+    config_param :exclude_container_regex, :string, :default => ''
+    config_param :exclude_facility_regex, :string, :default => ''
+    config_param :exclude_host_regex, :string, :default => ''
+    config_param :exclude_namespace_regex, :string, :default => ''
+    config_param :exclude_pod_regex, :string, :default => ''
+    config_param :exclude_priority_regex, :string, :default => ''
+    config_param :exclude_unit_regex, :string, :default => ''
 
     def configure(conf)
       super
@@ -86,6 +94,33 @@ module Fluent
         end
       end
 
+      if record.key?('_SYSTEMD_UNIT') and not record.fetch('_SYSTEMD_UNIT').nil?
+        unless @exclude_unit_regex.empty?
+          if Regexp.compile(@exclude_unit_regex).match(record['_SYSTEMD_UNIT'])
+            return nil
+          end
+        end
+
+        unless @exclude_facility_regex.empty?
+          if Regexp.compile(@exclude_facliity_regex).match(record['SYSLOG_FACILITY'])
+            return nil
+          end
+        end
+
+        unless @exclude_priority_regex.empty?
+          if Regexp.compile(@exclude_priority_regex).match(record['PRIORITY'])
+            return nil
+          end
+        end
+
+        unless @exclude_host_regex.empty?
+          if Regexp.compile(@exclude_host_regex).match(record['_HOSTNAME'])
+            return nil
+          end
+        end
+
+      end
+
       # Allow fields to be overridden by annotations
       if record.key?('kubernetes') and not record.fetch('kubernetes').nil?
         # Clone kubernetes hash so we don't override the cache
@@ -137,7 +172,12 @@ module Fluent
         end
 
         sumo_metadata[:log_format] = annotations['sumologic.com/format'] if annotations['sumologic.com/format']
-        sumo_metadata[:host] = k8s_metadata[:source_host] if k8s_metadata[:source_host]
+
+        if annotations['sumologic.com/sourceHost'].nil?
+          sumo_metadata[:host] = sumo_metadata[:host] % k8s_metadata
+        else
+          sumo_metadata[:host] = annotations['sumologic.com/sourceHost'] % k8s_metadata
+        end
 
         if annotations['sumologic.com/sourceName'].nil?
           sumo_metadata[:source] = sumo_metadata[:source] % k8s_metadata
